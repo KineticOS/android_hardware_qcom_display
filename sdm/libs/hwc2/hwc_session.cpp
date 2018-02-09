@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2014-2017, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2014-2018, The Linux Foundation. All rights reserved.
  * Not a Contribution.
  *
  * Copyright 2015 The Android Open Source Project
@@ -297,16 +297,25 @@ void HWCSession::GetCapabilities(struct hwc2_device *device, uint32_t *outCount,
   }
 
   int value = 0;
+  uint32_t count = 0;
   bool disable_skip_validate = false;
+  HWCSession *hwc_session = static_cast<HWCSession *>(device);
+  bool color_transform_supported = hwc_session->core_intf_->IsColorTransformSupported();
+
   if (Debug::Get()->GetProperty("sdm.debug.disable_skip_validate", &value) == kErrorNone) {
     disable_skip_validate = (value == 1);
   }
-  uint32_t count = 1 + (disable_skip_validate ? 0 : 1);
+
+  count += (color_transform_supported) ? 1 : 0;
+  count += (!disable_skip_validate) ? 1 : 0;
 
   if (outCapabilities != nullptr && (*outCount >= count)) {
-    outCapabilities[0] = HWC2_CAPABILITY_SKIP_CLIENT_COLOR_TRANSFORM;
+    int i = 0;
+    if (color_transform_supported) {
+      outCapabilities[i++] = HWC2_CAPABILITY_SKIP_CLIENT_COLOR_TRANSFORM;
+    }
     if (!disable_skip_validate) {
-      outCapabilities[1] = HWC2_CAPABILITY_SKIP_VALIDATE;
+      outCapabilities[i++] = HWC2_CAPABILITY_SKIP_VALIDATE;
     }
   }
   *outCount = count;
@@ -500,7 +509,9 @@ static int32_t GetHdrCapabilities(hwc2_device_t* device, hwc2_display_t display,
 }
 
 static uint32_t GetMaxVirtualDisplayCount(hwc2_device_t *device) {
-  return 1;
+  char property[PROPERTY_VALUE_MAX];
+  property_get("debug.sdm.support_writeback", property, "1");
+  return (uint32_t) atoi(property);
 }
 
 static int32_t GetReleaseFences(hwc2_device_t *device, hwc2_display_t display,
